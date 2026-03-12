@@ -1,0 +1,55 @@
+{
+  "entities": {
+    "Member": {
+      "title": "Member",
+      "description": "A gym member record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique member ID" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "middleName": { "type": "string" },
+        "birthday": { "type": "string", "format": "date" },
+        "age": { "type": "number" },
+        "gender": { "type": "string", "enum": ["Male", "Female", "Other"] },
+        "phone": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "emergencyName": { "type": "string" },
+        "emergencyRelation": { "type": "string" },
+        "emergencyPhone": { "type": "string" },
+        "type": { "type": "string", "enum": ["Student", "Premium", "VIP", "Regular"] },
+        "duration": { "type": "string", "enum": ["Monthly", "Annual"] },
+        "fee": { "type": "number" },
+        "regDate": { "type": "string", "format": "date" },
+        "expiration": { "type": "string", "format": "date" },
+        "photo": { "type": "string", "description": "Base64 or URL of member photo" }
+      },
+      "required": ["id", "firstName", "lastName", "email", "phone"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "A transaction record for membership fees",
+      "type": "object",
+      "properties": {
+        "paymentId": { "type": "string" },
+        "memberId": { "type": "string" },
+        "memberName": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string", "format": "date" },
+        "method": { "type": "string", "enum": ["Cash", "G-Cash", "Bank Transfer", "Credit Card"] },
+        "status": { "type": "string", "enum": ["Paid", "Pending", "Failed"] }
+      },
+      "required": ["paymentId", "memberId", "amount", "date", "status"]
+    }
+  },
+  "firestore": {
+    "/members/{memberId}": {
+      "schema": "Member",
+      "description": "Collection of gym members"
+    },
+    "/payments/{paymentId}": {
+      "schema": "Payment",
+      "description": "Collection of payment transactions"
+    }
+  }
+}

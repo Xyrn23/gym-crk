@@ -1,0 +1,5 @@
+{
+  "name": "CRK Gym Elite",
+  "description": "A high-end, elegant gym management system with real-time analytics and SQLite database integration.",
+  "requestFramePermissions": ["camera"]
+}

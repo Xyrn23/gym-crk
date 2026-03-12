@@ -1,0 +1,90 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: members
+// Document ID: {memberId}
+// Fields:
+//   - id: string (required)
+//   - firstName: string (required)
+//   - lastName: string (required)
+//   - email: string (required)
+//   - phone: string (required)
+//   ... other profile fields
+//
+// Collection: payments
+// Document ID: {paymentId}
+// Fields:
+//   - paymentId: string (required)
+//   - memberId: string (required)
+//   - amount: number (required)
+//   - date: string (required)
+//   - status: string (required)
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (request.auth.token.email == "jerseyaaronpaulreyes@gmail.com" && request.auth.token.email_verified == true);
+    }
+
+    function hasRequiredMemberFields(data) {
+      return data.keys().hasAll(['id', 'firstName', 'lastName', 'email', 'phone']);
+    }
+
+    function isValidMember(data) {
+      return hasRequiredMemberFields(data) &&
+             data.id is string &&
+             data.firstName is string && data.firstName.size() < 100 &&
+             data.lastName is string && data.lastName.size() < 100 &&
+             data.email is string &&
+             data.phone is string;
+    }
+
+    function isValidPayment(data) {
+      return data.keys().hasAll(['paymentId', 'memberId', 'amount', 'date', 'status']) &&
+             data.paymentId is string &&
+             data.memberId is string &&
+             data.amount is number && data.amount >= 0 &&
+             data.date is string &&
+             data.status in ['Paid', 'Pending', 'Failed'];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /members/{memberId} {
+      // For a gym management app, staff/admins need to see all members
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidMember(request.resource.data);
+      allow update: if isAuthenticated() && isValidMember(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidPayment(request.resource.data);
+      allow update: if isAuthenticated() && isValidPayment(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
