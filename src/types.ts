@@ -17,6 +17,8 @@ export interface Member {
   regDate: string;
   expiration: string;
   photo?: string;
+  paymentMethod?: string;
+  paymentStatus?: string;
 }
 
 export interface Payment {

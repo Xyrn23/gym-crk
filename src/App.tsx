@@ -21,9 +21,117 @@ import {
 } from 'lucide-react';
 import { api } from './api';
 import { Member, Payment } from './types';
-import { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, User, db, collection, onSnapshot, query, orderBy } from './firebase';
+import { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, User, db, collection, onSnapshot, query, orderBy, where, getDocs } from './firebase';
 
 // --- Components ---
+
+const CameraModal = ({ onCapture, onClose }: { onCapture: (photo: string) => void, onClose: () => void }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isReady, setIsReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    const startCamera = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'user' },
+          audio: false 
+        });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          setIsReady(true);
+        }
+      } catch (err) {
+        console.error("Camera error:", err);
+        setError("Could not access camera. Please check permissions.");
+      }
+    };
+    startCamera();
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
+
+  const capture = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        onCapture(dataUrl);
+        onClose();
+      }
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-white rounded-3xl overflow-hidden max-w-md w-full shadow-2xl"
+      >
+        <div className="p-6 border-b border-neutral-100 flex items-center justify-between">
+          <h3 className="font-bold text-xl">Take Photo</h3>
+          <button onClick={onClose} className="p-2 hover:bg-neutral-100 rounded-full transition-colors">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        
+        <div className="p-6">
+          <div className="relative aspect-square rounded-2xl bg-black overflow-hidden mb-6">
+            {error ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-6 text-center">
+                <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+                <p>{error}</p>
+              </div>
+            ) : (
+              <>
+                <video 
+                  ref={videoRef} 
+                  autoPlay 
+                  playsInline 
+                  className="w-full h-full object-cover"
+                />
+                {!isReady && (
+                  <div className="absolute inset-0 flex items-center justify-center text-white">
+                    <Clock className="w-8 h-8 animate-spin" />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          
+          <canvas ref={canvasRef} className="hidden" />
+          
+          <div className="flex gap-4">
+            <button 
+              onClick={onClose}
+              className="flex-1 py-4 rounded-2xl font-bold text-neutral-500 hover:bg-neutral-100 transition-colors"
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={capture}
+              disabled={!isReady}
+              className="flex-1 py-4 rounded-2xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors shadow-lg shadow-emerald-600/20"
+            >
+              Capture
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
 
 const StatCard = ({ title, value, icon: Icon, color }: { title: string, value: string | number, icon: any, color: string }) => (
   <div className="card p-6 flex items-center gap-4">
@@ -320,7 +428,7 @@ export default function App() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                 <StatCard title="Total Members" value={members.length} icon={Users} color="bg-blue-500" />
-                <StatCard title="Active Now" value={members.filter(m => new Date(m.expiration) > new Date()).length} icon={CheckCircle2} color="bg-emerald-500" />
+                <StatCard title="Active Now" value={members.filter(m => new Date(m.expiration) > new Date() && m.paymentStatus !== 'Pending').length} icon={CheckCircle2} color="bg-emerald-500" />
                 <StatCard title="Pending Payments" value={payments.filter(p => p.status === 'Pending').length} icon={Clock} color="bg-amber-500" />
                 <StatCard title="Total Revenue" value={`₱${payments.filter(p => p.status === 'Paid').reduce((acc, p) => acc + p.amount, 0).toLocaleString()}`} icon={TrendingUp} color="bg-purple-500" />
               </div>
@@ -459,7 +567,10 @@ const MembersView = ({ members }: { members: Member[] }) => {
           </thead>
           <tbody className="divide-y divide-neutral-100">
             {filteredMembers.map(member => {
-              const isActive = new Date(member.expiration) > new Date();
+              const isExpired = new Date(member.expiration) <= new Date();
+              const isPending = member.paymentStatus === 'Pending';
+              const isActive = !isExpired && !isPending;
+              
               return (
                 <tr key={member.id} className="hover:bg-neutral-50 transition-colors">
                   <td className="px-6 py-4">
@@ -479,9 +590,10 @@ const MembersView = ({ members }: { members: Member[] }) => {
                   </td>
                   <td className="px-6 py-4">
                     <span className={`text-xs font-bold px-2 py-1 rounded-full ${
-                      isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+                      isActive ? 'bg-emerald-100 text-emerald-700' : 
+                      isPending ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
                     }`}>
-                      {isActive ? 'Active' : 'Expired'}
+                      {isActive ? 'Active' : isPending ? 'Pending' : 'Expired'}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-neutral-500">
@@ -526,6 +638,7 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [showConsentPopup, setShowConsentPopup] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<Partial<Member>>(member || {
@@ -622,6 +735,28 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
       const sanitizedData = { ...formData, phone: phoneDigits };
       if (member) {
         await api.members.update(member.id, sanitizedData as Member);
+        
+        // Sync payment status if it exists
+        const q = query(
+          collection(db, 'payments'), 
+          where('memberId', '==', member.id)
+        );
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          // Find the payment that matches the registration date or just the most recent one
+          const payments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as Payment }));
+          const targetPayment = payments.find(p => p.date === member.regDate) || payments[0];
+          
+          if (targetPayment) {
+            await api.payments.update(targetPayment.paymentId, {
+              ...targetPayment,
+              memberName: `${formData.firstName} ${formData.lastName}`,
+              date: formData.regDate!,
+              status: (formData as any).paymentStatus || 'Paid',
+              method: (formData as any).paymentMethod || 'Cash'
+            });
+          }
+        }
       } else {
         const id = formData.firstName?.substring(0, 2).toUpperCase() + formData.lastName?.substring(0, 2).toUpperCase() + Math.floor(Math.random() * 10000);
         await api.members.create({ ...sanitizedData, id } as Member);
@@ -709,7 +844,7 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                   <button 
                     type="button" 
-                    onClick={() => cameraInputRef.current?.click()}
+                    onClick={() => setShowCamera(true)}
                     className="p-2 bg-white rounded-lg text-neutral-900 hover:bg-neutral-100 transition-colors"
                   >
                     <Camera className="w-5 h-5" />
@@ -734,6 +869,13 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
               </div>
               <p className="text-xs text-neutral-400 text-center">Recommended: 400x400px JPG or PNG</p>
             </div>
+
+            {showCamera && (
+              <CameraModal 
+                onCapture={(photo) => setFormData(prev => ({ ...prev, photo }))} 
+                onClose={() => setShowCamera(false)} 
+              />
+            )}
 
             {/* Form Fields */}
             <div className="md:col-span-2 space-y-6">
