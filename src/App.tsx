@@ -524,6 +524,7 @@ const MembersView = ({ members }: { members: Member[] }) => {
 const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, onClose: () => void, onSuccess: () => void }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [showConsentPopup, setShowConsentPopup] = useState(false);
 
   const [formData, setFormData] = useState<Partial<Member>>(member || {
     firstName: '',
@@ -597,14 +598,28 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    // Phone number validation (exactly 11 digits)
+    const phoneDigits = formData.phone?.replace(/\D/g, '') || '';
+    if (phoneDigits.length !== 11) {
+      alert("Phone number must be exactly 11 digits.");
+      return;
+    }
+
+    // Age restriction check
+    if (!member && formData.age! < 18 && !showConsentPopup) {
+      setShowConsentPopup(true);
+      return;
+    }
+
     try {
       if (member) {
         await api.members.update(member.id, formData as Member);
       } else {
         const id = formData.firstName?.substring(0, 2).toUpperCase() + formData.lastName?.substring(0, 2).toUpperCase() + Math.floor(Math.random() * 10000);
-        await api.members.create({ ...formData, id } as Member);
+        await api.members.create({ ...formData, id, phone: phoneDigits } as Member);
         // Create initial payment
         await api.payments.create({
           paymentId: 'PAY' + Date.now(),
@@ -898,6 +913,47 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
             </div>
           </div>
         </form>
+
+        {/* Consent Popup */}
+        <AnimatePresence>
+          {showConsentPopup && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+            >
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl"
+              >
+                <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <AlertCircle className="w-8 h-8" />
+                </div>
+                <h4 className="text-xl font-bold mb-2">Parental Consent Required</h4>
+                <p className="text-neutral-500 mb-8">
+                  This member is under 18 years old. Do they have parent or guardian consent to join the gym?
+                </p>
+                <div className="flex flex-col gap-3">
+                  <button 
+                    onClick={() => handleSubmit()}
+                    className="w-full py-4 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all"
+                  >
+                    Approve
+                  </button>
+                  <button 
+                    onClick={() => setShowConsentPopup(false)}
+                    className="w-full py-4 bg-neutral-100 text-neutral-600 rounded-xl font-bold hover:bg-neutral-200 transition-all"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </motion.div>
   );
