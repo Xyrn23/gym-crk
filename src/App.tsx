@@ -546,7 +546,8 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
     regDate: new Date().toISOString().split('T')[0],
     expiration: '',
     photo: '',
-    paymentMethod: 'Cash'
+    paymentMethod: 'Cash',
+    paymentStatus: 'Paid'
   } as any);
 
   useEffect(() => {
@@ -632,7 +633,7 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
           amount: formData.fee!,
           date: formData.regDate!,
           method: (formData as any).paymentMethod || 'Cash',
-          status: 'Paid'
+          status: (formData as any).paymentStatus || 'Paid'
         });
       }
       onSuccess();
@@ -841,13 +842,33 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
                   <select 
                     className="input-field" 
                     value={(formData as any).paymentMethod} 
-                    onChange={e => setFormData({...formData, paymentMethod: e.target.value} as any)}
+                    onChange={e => {
+                      const method = e.target.value;
+                      setFormData({
+                        ...formData, 
+                        paymentMethod: method,
+                        paymentStatus: method === 'Cash' ? 'Paid' : ((formData as any).paymentStatus || 'Paid')
+                      } as any);
+                    }}
                   >
                     <option>Cash</option>
                     <option>Bank Transfer</option>
                     <option>G-Cash</option>
                   </select>
                 </div>
+                {((formData as any).paymentMethod === 'Bank Transfer' || (formData as any).paymentMethod === 'G-Cash') && (
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1">Payment Status</label>
+                    <select 
+                      className="input-field" 
+                      value={(formData as any).paymentStatus} 
+                      onChange={e => setFormData({...formData, paymentStatus: e.target.value} as any)}
+                    >
+                      <option>Paid</option>
+                      <option>Pending</option>
+                    </select>
+                  </div>
+                )}
               </div>
 
               <h4 className="font-bold text-lg mt-6">Emergency Contact</h4>
