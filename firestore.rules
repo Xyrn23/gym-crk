@@ -39,7 +39,9 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() &&
         (request.auth.token.email == "jerseyaaronpaulreyes@gmail.com" || 
-         request.auth.token.email.endsWith("@crk-gym.com"));
+         request.auth.token.email == "jkhen77777@gmail.com" ||
+         request.auth.token.email == "weyylynbjno@gmail.com" ||
+         request.auth.token.email == "winalynmartinez241@gmail.com");
     }
 
     function hasRequiredMemberFields(data) {

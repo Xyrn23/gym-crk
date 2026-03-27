@@ -5,6 +5,10 @@ import {
   createUserWithEmailAndPassword, 
   signOut, 
   onAuthStateChanged, 
+  updatePassword,
+  reauthenticateWithCredential,
+  sendPasswordResetEmail,
+  EmailAuthProvider,
   User 
 } from 'firebase/auth';
 import { initializeFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, query, orderBy, where } from 'firebase/firestore';
@@ -23,6 +27,10 @@ export {
   createUserWithEmailAndPassword,
   signOut, 
   onAuthStateChanged, 
+  updatePassword,
+  reauthenticateWithCredential,
+  sendPasswordResetEmail,
+  EmailAuthProvider,
   collection, 
   doc, 
   setDoc, 

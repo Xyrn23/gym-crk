@@ -17,11 +17,31 @@ import {
   Upload,
   X,
   ChevronRight,
-  Menu
+  Menu,
+  Settings,
+  Lock
 } from 'lucide-react';
 import { api } from './api';
 import { Member, Payment } from './types';
-import { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, User, db, collection, onSnapshot, query, orderBy, where, getDocs } from './firebase';
+import { 
+  auth, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged, 
+  updatePassword,
+  reauthenticateWithCredential,
+  sendPasswordResetEmail,
+  EmailAuthProvider,
+  User, 
+  db, 
+  collection, 
+  onSnapshot, 
+  query, 
+  orderBy, 
+  where, 
+  getDocs 
+} from './firebase';
 
 // --- Components ---
 
@@ -164,11 +184,20 @@ export default function App() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockoutTime, setLockoutTime] = useState(0);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetStatus, setResetStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+
+  const ADMIN_EMAILS = [
+    'jerseyaaronpaulreyes@gmail.com',
+    'jkhen77777@gmail.com',
+    'weyylynbjno@gmail.com',
+    'winalynmartinez241@gmail.com'
+  ];
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -232,13 +261,19 @@ export default function App() {
     if (lockoutTime > 0) return;
     
     setAuthError('');
+    
+    // Check if email is in the admin list
+    if (!ADMIN_EMAILS.includes(email.toLowerCase().trim())) {
+      setAuthError('Access denied. This email is not authorized as an admin.');
+      return;
+    }
+
     try {
-      // Map username to a internal email format for Firebase Auth
-      const email = `${username.toLowerCase().trim()}@crk-gym.com`;
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, email.toLowerCase().trim(), password);
       setFailedAttempts(0);
     } catch (error: any) {
       console.error("Auth error:", error);
+      
       const newAttempts = failedAttempts + 1;
       setFailedAttempts(newAttempts);
       
@@ -246,8 +281,33 @@ export default function App() {
         setLockoutTime(60);
         setAuthError('Too many failed attempts. Access blocked for 1 minute.');
       } else {
-        setAuthError(`Invalid username or password. ${3 - newAttempts} attempts remaining.`);
+        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+          setAuthError(`Invalid email or password. Please ensure this user has been added to the Firebase Console Authentication tab.`);
+        } else {
+          setAuthError('An error occurred during sign in. Please try again.');
+        }
       }
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      setResetStatus({ type: 'error', message: 'Please enter your email address first.' });
+      return;
+    }
+
+    if (!ADMIN_EMAILS.includes(email.toLowerCase().trim())) {
+      setResetStatus({ type: 'error', message: 'This email is not authorized as an admin.' });
+      return;
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, email.toLowerCase().trim());
+      setResetStatus({ type: 'success', message: 'Password reset link sent! Check your inbox.' });
+    } catch (error: any) {
+      console.error("Reset error:", error);
+      setResetStatus({ type: 'error', message: 'Failed to send reset link. Ensure the user exists in Firebase.' });
     }
   };
 
@@ -311,44 +371,99 @@ export default function App() {
           </div>
 
           <div className="space-y-6">
-            <form onSubmit={handleAuth} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-neutral-300 mb-1">Admin Username</label>
-                <input 
-                  type="text" 
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  placeholder="e.g. admin"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-neutral-300 mb-1">Password</label>
-                <input 
-                  type="password" 
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-              
-              {authError && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-500 text-sm p-3 rounded-xl flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4" />
-                  {authError}
+            {!isResetting ? (
+              <form onSubmit={handleAuth} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-300 mb-1">Admin Email</label>
+                  <input 
+                    type="email" 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="admin@example.com"
+                    required
+                  />
                 </div>
-              )}
+                <div>
+                  <label className="block text-sm font-medium text-neutral-300 mb-1">Password</label>
+                  <input 
+                    type="password" 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="••••••••"
+                    required
+                  />
+                </div>
+                
+                {authError && (
+                  <div className="bg-red-500/10 border border-red-500/20 text-red-500 text-sm p-3 rounded-xl flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4" />
+                    {authError}
+                  </div>
+                )}
 
-              <button 
-                type="submit"
-                className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/20"
-              >
-                Sign In
-              </button>
-            </form>
+                <button 
+                  type="submit"
+                  className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/20"
+                >
+                  Sign In
+                </button>
+
+                <div className="text-center">
+                  <button 
+                    type="button"
+                    onClick={() => setIsResetting(true)}
+                    className="text-emerald-500 text-sm font-medium hover:underline"
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-300 mb-1">Admin Email</label>
+                  <input 
+                    type="email" 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="admin@example.com"
+                    required
+                  />
+                </div>
+
+                {resetStatus && (
+                  <div className={`p-3 rounded-xl flex items-center gap-2 text-sm ${
+                    resetStatus.type === 'success' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'
+                  }`}>
+                    {resetStatus.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                    {resetStatus.message}
+                  </div>
+                )}
+
+                <button 
+                  type="submit"
+                  className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/20"
+                >
+                  Send Reset Link
+                </button>
+
+                <div className="text-center">
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setIsResetting(false);
+                      setResetStatus(null);
+                    }}
+                    className="text-emerald-500 text-sm font-medium hover:underline"
+                  >
+                    Back to Sign In
+                  </button>
+                </div>
+              </form>
+            )}
 
             <p className="text-center text-neutral-500 text-xs">
               Contact the system owner if you've forgotten the universal admin credentials.
@@ -363,6 +478,7 @@ export default function App() {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'members', label: 'Members', icon: Users },
     { id: 'payments', label: 'Payments', icon: CreditCard },
+    { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
   return (
@@ -561,8 +677,156 @@ export default function App() {
               <PaymentsView payments={payments} members={members} />
             </motion.div>
           )}
+          {activeTab === 'settings' && (
+            <motion.div 
+              key="settings"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              <SettingsView user={user} />
+            </motion.div>
+          )}
         </AnimatePresence>
       </main>
+    </div>
+  );
+}
+
+// --- Settings View ---
+
+const SettingsView = ({ user }: { user: User | null }) => {
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [status, setStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    
+    if (newPassword !== confirmPassword) {
+      setStatus({ type: 'error', message: 'New passwords do not match.' });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setStatus({ type: 'error', message: 'Password must be at least 6 characters.' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatus(null);
+
+    try {
+      // Re-authenticate user
+      const credential = EmailAuthProvider.credential(user.email!, currentPassword);
+      await reauthenticateWithCredential(user, credential);
+      
+      // Update password
+      await updatePassword(user, newPassword);
+      
+      setStatus({ type: 'success', message: 'Password updated successfully!' });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error: any) {
+      console.error("Password update error:", error);
+      if (error.code === 'auth/wrong-password') {
+        setStatus({ type: 'error', message: 'Incorrect current password.' });
+      } else {
+        setStatus({ type: 'error', message: 'Failed to update password. Please try again.' });
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div>
+      <SectionHeader 
+        title="Settings" 
+        description="Manage your account preferences and security."
+      />
+
+      <div className="max-w-2xl">
+        <div className="card p-8">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center">
+              <Lock className="w-6 h-6 text-emerald-600" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold">Change Password</h3>
+              <p className="text-sm text-neutral-500">Update your account password regularly to keep it secure.</p>
+            </div>
+          </div>
+
+          <form onSubmit={handlePasswordChange} className="space-y-6">
+            <div>
+              <label className="block text-sm font-bold text-neutral-700 mb-2">Current Password</label>
+              <input 
+                type="password" 
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className="input-field"
+                placeholder="Enter current password"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-bold text-neutral-700 mb-2">New Password</label>
+                <input 
+                  type="password" 
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="input-field"
+                  placeholder="At least 6 characters"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-neutral-700 mb-2">Confirm New Password</label>
+                <input 
+                  type="password" 
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="input-field"
+                  placeholder="Repeat new password"
+                  required
+                />
+              </div>
+            </div>
+
+            {status && (
+              <div className={`p-4 rounded-xl flex items-center gap-3 ${
+                status.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'
+              }`}>
+                {status.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+                <p className="text-sm font-medium">{status.message}</p>
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <button 
+                type="submit" 
+                disabled={isSubmitting}
+                className="btn-primary px-8 py-3 disabled:opacity-50"
+              >
+                {isSubmitting ? 'Updating...' : 'Update Password'}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div className="mt-8 card p-6 bg-neutral-50 border-dashed border-2 border-neutral-200">
+          <h4 className="font-bold mb-2">Account Information</h4>
+          <p className="text-sm text-neutral-600">You are currently logged in as:</p>
+          <p className="text-sm font-mono font-bold text-emerald-600 mt-1">{user?.email}</p>
+        </div>
+      </div>
     </div>
   );
 }
