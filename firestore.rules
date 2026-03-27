@@ -38,7 +38,8 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-        (request.auth.token.email == "jerseyaaronpaulreyes@gmail.com" && request.auth.token.email_verified == true);
+        (request.auth.token.email == "jerseyaaronpaulreyes@gmail.com" || 
+         request.auth.token.email.endsWith("@crk-gym.com"));
     }
 
     function hasRequiredMemberFields(data) {
@@ -51,7 +52,8 @@ service cloud.firestore {
              data.firstName is string && data.firstName.size() < 100 &&
              data.lastName is string && data.lastName.size() < 100 &&
              data.email is string &&
-             data.phone is string &&
+             data.phone is string && data.phone.size() == 11 &&
+             (!('age' in data) || (data.age is number && data.age >= 0 && data.age < 120)) &&
              (!('photo' in data) || (data.photo is string && data.photo.size() < 1500000));
     }
 
@@ -73,14 +75,14 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && isValidMember(request.resource.data);
       allow update: if isAuthenticated() && isValidMember(request.resource.data);
-      allow delete: if isAdmin();
+      allow delete: if isAuthenticated();
     }
 
     match /payments/{paymentId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && isValidPayment(request.resource.data);
       allow update: if isAuthenticated() && isValidPayment(request.resource.data);
-      allow delete: if isAdmin();
+      allow delete: if isAuthenticated();
     }
 
     // Default deny

@@ -525,6 +525,8 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [showConsentPopup, setShowConsentPopup] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<Partial<Member>>(member || {
     firstName: '',
@@ -587,7 +589,7 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 1024 * 1024) { // 1MB limit for Firestore
-        alert("Image is too large. Please select an image under 1MB.");
+        setError("Image is too large. Please select an image under 1MB.");
         return;
       }
       const reader = new FileReader();
@@ -598,28 +600,30 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
     }
   };
 
-  const handleSubmit = async (e?: React.FormEvent) => {
+  const handleSubmit = async (e?: React.FormEvent, skipConsent = false) => {
     if (e) e.preventDefault();
+    setError(null);
 
     // Phone number validation (exactly 11 digits)
     const phoneDigits = formData.phone?.replace(/\D/g, '') || '';
     if (phoneDigits.length !== 11) {
-      alert("Phone number must be exactly 11 digits.");
+      setError("Phone number must be exactly 11 digits.");
       return;
     }
 
     // Age restriction check
-    if (!member && formData.age! < 18 && !showConsentPopup) {
+    if (!member && (formData.age || 0) < 18 && !skipConsent) {
       setShowConsentPopup(true);
       return;
     }
 
     try {
+      const sanitizedData = { ...formData, phone: phoneDigits };
       if (member) {
-        await api.members.update(member.id, formData as Member);
+        await api.members.update(member.id, sanitizedData as Member);
       } else {
         const id = formData.firstName?.substring(0, 2).toUpperCase() + formData.lastName?.substring(0, 2).toUpperCase() + Math.floor(Math.random() * 10000);
-        await api.members.create({ ...formData, id, phone: phoneDigits } as Member);
+        await api.members.create({ ...sanitizedData, id } as Member);
         // Create initial payment
         await api.payments.create({
           paymentId: 'PAY' + Date.now(),
@@ -634,14 +638,19 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
       onSuccess();
     } catch (error) {
       console.error("Error saving member:", error);
-      alert("Failed to save member");
+      setError("Failed to save member. Please try again.");
     }
   };
 
   const handleDelete = async () => {
-    if (member && confirm("Are you sure you want to delete this member?")) {
-      await api.members.delete(member.id);
-      onSuccess();
+    if (member) {
+      try {
+        await api.members.delete(member.id);
+        onSuccess();
+      } catch (error) {
+        console.error("Error deleting member:", error);
+        setError("Failed to delete member.");
+      }
     }
   };
 
@@ -666,6 +675,12 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
         </div>
 
         <form onSubmit={handleSubmit} className="p-8 space-y-8">
+          {error && (
+            <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600">
+              <AlertCircle className="w-5 h-5" />
+              <p className="text-sm font-medium">{error}</p>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Photo Section */}
             <div className="flex flex-col items-center gap-4">
@@ -905,7 +920,7 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
 
           <div className="flex items-center justify-between pt-8 border-t border-neutral-100">
             {member ? (
-              <button type="button" onClick={handleDelete} className="text-red-500 font-bold hover:underline">Delete Member</button>
+              <button type="button" onClick={() => setShowDeleteConfirm(true)} className="text-red-500 font-bold hover:underline">Delete Member</button>
             ) : <div />}
             <div className="flex gap-4">
               <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
@@ -913,6 +928,47 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
             </div>
           </div>
         </form>
+
+        {/* Delete Confirmation Popup */}
+        <AnimatePresence>
+          {showDeleteConfirm && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+            >
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl"
+              >
+                <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <AlertCircle className="w-8 h-8" />
+                </div>
+                <h4 className="text-xl font-bold mb-2">Delete Member?</h4>
+                <p className="text-neutral-500 mb-8">
+                  Are you sure you want to delete this member? This action cannot be undone.
+                </p>
+                <div className="flex flex-col gap-3">
+                  <button 
+                    onClick={handleDelete}
+                    className="w-full py-4 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all"
+                  >
+                    Yes, Delete
+                  </button>
+                  <button 
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="w-full py-4 bg-neutral-100 text-neutral-600 rounded-xl font-bold hover:bg-neutral-200 transition-all"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Consent Popup */}
         <AnimatePresence>
@@ -938,7 +994,10 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
                 </p>
                 <div className="flex flex-col gap-3">
                   <button 
-                    onClick={() => handleSubmit()}
+                    onClick={() => {
+                      setShowConsentPopup(false);
+                      handleSubmit(undefined, true);
+                    }}
                     className="w-full py-4 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all"
                   >
                     Approve
