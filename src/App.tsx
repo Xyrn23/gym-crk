@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Users, 
@@ -522,6 +522,9 @@ const MembersView = ({ members }: { members: Member[] }) => {
 };
 
 const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, onClose: () => void, onSuccess: () => void }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
   const [formData, setFormData] = useState<Partial<Member>>(member || {
     firstName: '',
     lastName: '',
@@ -578,6 +581,21 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
       expiration: calculateExpiration()
     }));
   }, [formData.type, formData.duration, formData.regDate]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 1024 * 1024) { // 1MB limit for Firestore
+        alert("Image is too large. Please select an image under 1MB.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, photo: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -636,6 +654,21 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Photo Section */}
             <div className="flex flex-col items-center gap-4">
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="image/*" 
+                onChange={handleFileChange} 
+              />
+              <input 
+                type="file" 
+                ref={cameraInputRef} 
+                className="hidden" 
+                accept="image/*" 
+                capture="user" 
+                onChange={handleFileChange} 
+              />
               <div className="w-48 h-48 rounded-3xl bg-neutral-100 border-2 border-dashed border-neutral-200 flex items-center justify-center overflow-hidden relative group">
                 {formData.photo ? (
                   <img src={formData.photo} className="w-full h-full object-cover" />
@@ -643,8 +676,29 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
                   <Users className="w-12 h-12 text-neutral-300" />
                 )}
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                  <button type="button" className="p-2 bg-white rounded-lg text-neutral-900"><Camera className="w-5 h-5" /></button>
-                  <button type="button" className="p-2 bg-white rounded-lg text-neutral-900"><Upload className="w-5 h-5" /></button>
+                  <button 
+                    type="button" 
+                    onClick={() => cameraInputRef.current?.click()}
+                    className="p-2 bg-white rounded-lg text-neutral-900 hover:bg-neutral-100 transition-colors"
+                  >
+                    <Camera className="w-5 h-5" />
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-2 bg-white rounded-lg text-neutral-900 hover:bg-neutral-100 transition-colors"
+                  >
+                    <Upload className="w-5 h-5" />
+                  </button>
+                  {formData.photo && (
+                    <button 
+                      type="button" 
+                      onClick={() => setFormData(prev => ({ ...prev, photo: '' }))}
+                      className="p-2 bg-white rounded-lg text-red-500 hover:bg-neutral-100 transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
               </div>
               <p className="text-xs text-neutral-400 text-center">Recommended: 400x400px JPG or PNG</p>
@@ -652,7 +706,7 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
 
             {/* Form Fields */}
             <div className="md:col-span-2 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 mb-1">First Name</label>
                   <input 
@@ -661,6 +715,15 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
                     value={formData.firstName} 
                     onChange={e => setFormData({...formData, firstName: e.target.value})}
                     required 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">Middle Name</label>
+                  <input 
+                    type="text" 
+                    className="input-field" 
+                    value={formData.middleName} 
+                    onChange={e => setFormData({...formData, middleName: e.target.value})}
                   />
                 </div>
                 <div>
