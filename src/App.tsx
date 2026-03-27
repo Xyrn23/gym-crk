@@ -167,6 +167,24 @@ export default function App() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutTime, setLockoutTime] = useState(0);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (lockoutTime > 0) {
+      timer = setInterval(() => {
+        setLockoutTime((prev) => {
+          if (prev <= 1) {
+            setFailedAttempts(0);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [lockoutTime]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -211,14 +229,25 @@ export default function App() {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (lockoutTime > 0) return;
+    
     setAuthError('');
     try {
       // Map username to a internal email format for Firebase Auth
       const email = `${username.toLowerCase().trim()}@crk-gym.com`;
       await signInWithEmailAndPassword(auth, email, password);
+      setFailedAttempts(0);
     } catch (error: any) {
       console.error("Auth error:", error);
-      setAuthError('Invalid username or password');
+      const newAttempts = failedAttempts + 1;
+      setFailedAttempts(newAttempts);
+      
+      if (newAttempts >= 3) {
+        setLockoutTime(60);
+        setAuthError('Too many failed attempts. Access blocked for 1 minute.');
+      } else {
+        setAuthError(`Invalid username or password. ${3 - newAttempts} attempts remaining.`);
+      }
     }
   };
 
@@ -251,8 +280,28 @@ export default function App() {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md bg-white/5 backdrop-blur-2xl p-8 rounded-3xl relative z-10 border border-white/10 shadow-2xl"
+          className="w-full max-w-md bg-white/5 backdrop-blur-2xl p-8 rounded-3xl relative z-10 border border-white/10 shadow-2xl overflow-hidden"
         >
+          <AnimatePresence>
+            {lockoutTime > 0 && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 z-50 bg-neutral-900/95 backdrop-blur-md flex flex-col items-center justify-center text-center p-8"
+              >
+                <div className="w-20 h-20 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mb-6">
+                  <Clock className="w-10 h-10" />
+                </div>
+                <h2 className="text-2xl font-bold text-white mb-2">Access Blocked</h2>
+                <p className="text-neutral-400 mb-8">Too many failed attempts. Please wait before trying again.</p>
+                <div className="text-6xl font-mono font-bold text-emerald-500 tabular-nums">
+                  00:{lockoutTime < 10 ? `0${lockoutTime}` : lockoutTime}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <div className="text-center mb-8">
             <div className="w-16 h-16 bg-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-600/20">
               <TrendingUp className="text-white w-8 h-8" />
