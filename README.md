@@ -1,20 +1,26 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# CRK Gym Elite Management System
 
-# Run and deploy your AI Studio app
+A professional, high-end gym management system designed for tracking members, managing payments, and providing real-time business analytics.
 
-This contains everything you need to run your app locally.
+## Project Description
 
-View your app in AI Studio: https://ai.studio/apps/bb8dcf82-c116-4c14-bc7a-306c883fbebe
+CRK Gym Elite is a comprehensive administrative tool built to streamline gym operations. It features a secure dashboard for monitoring revenue, member growth, and attendance, alongside dedicated modules for member registration and payment tracking.
 
-## Run Locally
+## Directory Structure
 
-**Prerequisites:**  Node.js
+- `src/` - Core application source code
+  - `App.tsx` - Main application logic, routing, and UI components
+  - `firebase.ts` - Firebase SDK initialization and configuration
+  - `index.css` - Global styles and Tailwind CSS utility definitions
+- `firestore.rules` - Security rules for the Firestore database
+- `firebase-blueprint.json` - Data structure and entity definitions
+- `metadata.json` - Application metadata and permissions
 
+## Tools Used
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+- **React (Vite)** - Fast and modern frontend framework
+- **Firebase** - Real-time database (Firestore) and secure authentication
+- **Tailwind CSS** - Utility-first styling for a clean, professional UI
+- **Lucide React** - Elegant and consistent iconography
+- **Motion** - Smooth and responsive animations
+- **Recharts** - Data visualization for business analytics
