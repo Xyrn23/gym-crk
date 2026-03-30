@@ -1510,20 +1510,24 @@ const PaymentsView = ({ payments, members }: { payments: Payment[], members: Mem
 
   return (
     <div>
-      <SectionHeader 
-        title="Payments" 
-        description="Track revenue, manage subscriptions, and handle billing."
-      />
-
-      <div className="mb-6 relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 w-5 h-5 z-10" />
-        <input 
-          type="text" 
-          placeholder="Search payments by member name or ID..." 
-          className="input-field !pl-12"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-8 mb-8">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Payments</h2>
+          <p className="text-neutral-500 mt-1">Track revenue, manage subscriptions, and handle billing.</p>
+        </div>
+        
+        <div className="flex flex-col gap-4 w-full md:w-64">
+          <div className="relative w-full">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 w-5 h-5 z-10" />
+            <input 
+              type="text" 
+              placeholder="Search payments..." 
+              className="input-field !pl-12 w-full"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
       </div>
 
       <div className="card overflow-x-auto">
