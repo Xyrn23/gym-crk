@@ -153,6 +153,10 @@ const CameraModal = ({ onCapture, onClose }: { onCapture: (photo: string) => voi
   );
 };
 
+const toTitleCase = (str: string) => {
+  return str.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+};
+
 const StatCard = ({ title, value, icon: Icon, color }: { title: string, value: string | number, icon: any, color: string }) => (
   <div className="card p-6 flex items-center gap-4">
     <div className={`p-3 rounded-xl ${color} bg-opacity-10`}>
@@ -378,8 +382,8 @@ export default function App() {
                   <input 
                     type="email" 
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    onChange={(e) => setEmail(e.target.value.toLowerCase())}
+                    className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500 normal-case"
                     placeholder="admin@example.com"
                     required
                   />
@@ -390,7 +394,7 @@ export default function App() {
                     type="password" 
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500 normal-case"
                     placeholder="••••••••"
                     required
                   />
@@ -706,6 +710,11 @@ const SettingsView = ({ user }: { user: User | null }) => {
     e.preventDefault();
     if (!user) return;
     
+    if (newPassword === currentPassword) {
+      setStatus({ type: 'error', message: 'New password must be different from the current password.' });
+      return;
+    }
+
     if (newPassword !== confirmPassword) {
       setStatus({ type: 'error', message: 'New passwords do not match.' });
       return;
@@ -769,7 +778,7 @@ const SettingsView = ({ user }: { user: User | null }) => {
                 type="password" 
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
-                className="input-field"
+                className="input-field normal-case"
                 placeholder="Enter current password"
                 required
               />
@@ -782,7 +791,7 @@ const SettingsView = ({ user }: { user: User | null }) => {
                   type="password" 
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="input-field"
+                  className="input-field normal-case"
                   placeholder="At least 6 characters"
                   required
                 />
@@ -793,7 +802,7 @@ const SettingsView = ({ user }: { user: User | null }) => {
                   type="password" 
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="input-field"
+                  className="input-field normal-case"
                   placeholder="Repeat new password"
                   required
                 />
@@ -864,7 +873,7 @@ const MembersView = ({ members }: { members: Member[] }) => {
               placeholder="Search members..." 
               className="input-field !pl-12 w-full"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => setSearchTerm(toTitleCase(e.target.value))}
             />
           </div>
         </div>
@@ -1202,7 +1211,7 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
                     type="text" 
                     className="input-field" 
                     value={formData.firstName} 
-                    onChange={e => setFormData({...formData, firstName: e.target.value})}
+                    onChange={e => setFormData({...formData, firstName: toTitleCase(e.target.value)})}
                     required 
                   />
                 </div>
@@ -1212,7 +1221,7 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
                     type="text" 
                     className="input-field" 
                     value={formData.middleName} 
-                    onChange={e => setFormData({...formData, middleName: e.target.value})}
+                    onChange={e => setFormData({...formData, middleName: toTitleCase(e.target.value)})}
                   />
                 </div>
                 <div>
@@ -1221,7 +1230,7 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
                     type="text" 
                     className="input-field" 
                     value={formData.lastName} 
-                    onChange={e => setFormData({...formData, lastName: e.target.value})}
+                    onChange={e => setFormData({...formData, lastName: toTitleCase(e.target.value)})}
                     required 
                   />
                 </div>
@@ -1336,7 +1345,7 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
                   placeholder="Contact Name" 
                   className="input-field" 
                   value={formData.emergencyName} 
-                  onChange={e => setFormData({...formData, emergencyName: e.target.value})}
+                  onChange={e => setFormData({...formData, emergencyName: toTitleCase(e.target.value)})}
                 />
                 <div className="grid grid-cols-2 gap-4">
                   <input 
@@ -1344,7 +1353,7 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
                     placeholder="Relation" 
                     className="input-field" 
                     value={formData.emergencyRelation} 
-                    onChange={e => setFormData({...formData, emergencyRelation: e.target.value})}
+                    onChange={e => setFormData({...formData, emergencyRelation: toTitleCase(e.target.value)})}
                   />
                   <input 
                     type="tel" 
@@ -1524,7 +1533,7 @@ const PaymentsView = ({ payments, members }: { payments: Payment[], members: Mem
               placeholder="Search payments..." 
               className="input-field !pl-12 w-full"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => setSearchTerm(toTitleCase(e.target.value))}
             />
           </div>
         </div>
@@ -1534,7 +1543,7 @@ const PaymentsView = ({ payments, members }: { payments: Payment[], members: Mem
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-neutral-50 border-b border-neutral-100">
-              <th className="px-6 py-4 text-sm font-bold text-neutral-500">Transaction</th>
+              <th className="px-6 py-4 text-sm font-bold text-neutral-500">Transaction Code</th>
               <th className="px-6 py-4 text-sm font-bold text-neutral-500">Member</th>
               <th className="px-6 py-4 text-sm font-bold text-neutral-500">Amount</th>
               <th className="px-6 py-4 text-sm font-bold text-neutral-500">Date</th>
