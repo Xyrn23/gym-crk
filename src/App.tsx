@@ -845,26 +845,29 @@ const MembersView = ({ members }: { members: Member[] }) => {
 
   return (
     <div>
-      <SectionHeader 
-        title="Members" 
-        description="Manage your gym community and membership details."
-        action={
-          <button onClick={() => setIsAdding(true)} className="btn-primary flex items-center gap-2">
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-8 mb-8">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Members</h2>
+          <p className="text-neutral-500 mt-1">Manage your gym community and membership details.</p>
+        </div>
+        
+        <div className="flex flex-col gap-4 w-full md:w-64">
+          <button onClick={() => setIsAdding(true)} className="btn-primary flex items-center justify-center gap-2 w-full">
             <UserPlus className="w-5 h-5" />
             Add Member
           </button>
-        }
-      />
-
-      <div className="mb-6 relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 w-5 h-5 z-10" />
-        <input 
-          type="text" 
-          placeholder="Search members by name or ID..." 
-          className="input-field !pl-12"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+          
+          <div className="relative w-full">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 w-5 h-5 z-10" />
+            <input 
+              type="text" 
+              placeholder="Search members..." 
+              className="input-field !pl-12 w-full"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
       </div>
 
       <div className="card overflow-x-auto">
@@ -966,9 +969,9 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
     emergencyName: '',
     emergencyRelation: '',
     emergencyPhone: '',
-    type: 'Student',
+    type: 'Regular',
     duration: 'Monthly',
-    fee: 400,
+    fee: 600,
     regDate: new Date().toISOString().split('T')[0],
     expiration: '',
     photo: '',
@@ -991,10 +994,10 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
 
   useEffect(() => {
     const calculateFee = () => {
-      let base = formData.duration === 'Monthly' ? 500 : 5000;
+      let base = formData.duration === 'Monthly' ? 600 : 6500;
       if (formData.type === 'Student') base *= 0.8;
-      else if (formData.type === 'Premium') base *= 0.9;
-      else if (formData.type === 'VIP') base *= 0.85;
+      else if (formData.type === 'Premium') base *= 1.2;
+      else if (formData.type === 'VIP') base *= 1.5;
       return base;
     };
 
@@ -1364,6 +1367,7 @@ const MemberModal = ({ member, onClose, onSuccess }: { member: Member | null, on
                     value={formData.type} 
                     onChange={e => setFormData({...formData, type: e.target.value})}
                   >
+                    <option>Regular</option>
                     <option>Student</option>
                     <option>Premium</option>
                     <option>VIP</option>
