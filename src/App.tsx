@@ -1543,7 +1543,7 @@ const PaymentsView = ({ payments, members }: { payments: Payment[], members: Mem
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-neutral-50 border-b border-neutral-100">
-              <th className="px-6 py-4 text-sm font-bold text-neutral-500">Transaction</th>
+              <th className="px-6 py-4 text-sm font-bold text-neutral-500">Transaction code</th>
               <th className="px-6 py-4 text-sm font-bold text-neutral-500">Member</th>
               <th className="px-6 py-4 text-sm font-bold text-neutral-500">Amount</th>
               <th className="px-6 py-4 text-sm font-bold text-neutral-500">Date</th>
